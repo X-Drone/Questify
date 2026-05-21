@@ -1,0 +1,93 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ========== FRONTEND ==========
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        working-directory: ./client
+      
+      - name: Build with Vite
+        run: npm run build
+        env:
+          VITE_BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          VITE_AUTH_URL_CLIENT: ${{ secrets.AUTH_URL_CLIENT }}
+          VITE_AUTH_URL_SERVER: ${{ secrets.AUTH_URL_SERVER }}
+        working-directory: ./client
+
+      - name: Deploy frontend
+        uses: appleboy/scp-action@v0.1.6
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "client/dist/"
+          target: "/volume1/web/questify/client"
+          strip_components: 2
+          rm: true
+          overwrite: true
+
+
+      # ========== BACKEND ==========
+      - name: Setup .env for backend
+        run: |
+            echo "DEBUG=false" >> ./server/.env
+            echo "AUTH_URL=${{ secrets.AUTH_URL_SERVER }}" >> ./server/.env
+            echo "DATABASE_URL=postgresql://postgres:postgres@db:5432/questify" >> ./server/.env
+
+      - name: Deploy backend source
+        uses: appleboy/scp-action@v0.1.6
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "server/"
+          target: "/volume1/web/questify/server"
+          strip_components: 1
+          rm: true
+          overwrite: true
+        
+      - name: Restart backend
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /volume1/web/questify/server
+            docker-compose down
+            docker-compose run --rm backend python -m alembic upgrade head
+            docker-compose up -d --build
+            echo "Backend started on port 3002"
+
+      # ========== VERIFY ==========
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            ls -la /volume1/web/questify
+            echo "Deployed successfully"

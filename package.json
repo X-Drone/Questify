@@ -1,0 +1,32 @@
+{
+  "name": "lint_slayer",
+  "version": "1.1.0",
+  "main": "index.js",
+  "scripts": {
+    "install-client": "npm --prefix client install",
+    "install-server": "node server/scripts/install-backend.js",
+    "install-all": "npm run install-client && npm run install-server",
+    "client": "npm --prefix client start",
+    "server": "node server/scripts/start-backend.js",
+    "dev-client": "npm --prefix client run dev",
+    "dev": "concurrently -n CLIENT,BACKEND -c cyan,green --kill-others --kill-others-on-fail \"npm run dev-client\" \"npm run server\"",
+    "build-client": "npm --prefix client run build",
+    "build-server": "cd server && docker-compose build",
+    "build": "concurrently -n CLIENT,SERVER -c blue,magenta \"npm run build-client\" \"npm run build-server\"",
+    "start": "cd server && docker-compose down && docker-compose up"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/X-Drone/lint_slayer.git"
+  },
+  "author": "X-Drone",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/X-Drone/lint_slayer/issues"
+  },
+  "homepage": "https://github.com/X-Drone/lint_slayer#readme",
+  "description": "",
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}
