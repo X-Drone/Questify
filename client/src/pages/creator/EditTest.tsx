@@ -160,8 +160,8 @@ export function EditTest() {
       d.expectedText = q.answer_options[0]?.text ?? ''
     } else if (q.type === 'matching_pairs') {
       d.pairs = q.answer_options.map(o => ({
-        left: String((o as Record<string, unknown>).left ?? ''),
-        right: String((o as Record<string, unknown>).right ?? ''),
+        left: String((o as unknown as Record<string, unknown>).left ?? ''),
+        right: String((o as unknown as Record<string, unknown>).right ?? ''),
       }))
     } else if (q.type === 'ordering') {
       d.orderedItems = [...q.answer_options]
