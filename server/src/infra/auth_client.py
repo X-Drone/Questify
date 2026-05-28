@@ -82,7 +82,7 @@ class AuthClient(IAuthClient):
             payload = json.dumps({"token": token})
             headers = {"Content-Type": "application/json"}
 
-            conn.request("POST", "/verify", body=payload, headers=headers)
+            conn.request("POST", f"{parsed.path}/verify", body=payload, headers=headers)
 
             response = conn.getresponse()
 
@@ -105,7 +105,9 @@ class AuthClient(IAuthClient):
 
     def _get_user_info(self, token: str, timeout: int) -> dict:
         """Get user info from /users/me endpoint"""
-        url = f"{self.base_url}/../users/me"  # Go up from /auth/ to root
+        base_parts = self.base_url.rsplit("/auth", 1)
+        root_url = base_parts[0] if len(base_parts) > 1 else self.base_url
+        url = f"{root_url}/users/me"
         
         headers = {
             "Authorization": f"Bearer {token}",

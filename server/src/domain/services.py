@@ -64,27 +64,27 @@ class AnswerEvaluationService:
             raise ValueError(f"Unknown question type: {question.question_type}")
 
     def _evaluate_single_choice(
-        self, 
-        answer: UserAnswer, 
+        self,
+        answer: UserAnswer,
         correct_options: list[AnswerOption]
     ) -> Tuple[bool, float]:
         """Evaluate single choice answer"""
         selected_id = answer.answer_payload.data.get("selected_id")
-        correct_id = correct_options[0].order if correct_options else None
-        
+        correct_id = correct_options[0].id if correct_options else None
+
         is_correct = selected_id == correct_id
         points = 1.0 if is_correct else 0.0
         return is_correct, points
 
     def _evaluate_multiple_choice(
-        self, 
-        answer: UserAnswer, 
+        self,
+        answer: UserAnswer,
         correct_options: list[AnswerOption]
     ) -> Tuple[bool, float]:
         """Evaluate multiple choice answer"""
         selected_ids = set(answer.answer_payload.data.get("selected_ids", []))
-        correct_ids = {opt.order for opt in correct_options}
-        
+        correct_ids = {opt.id for opt in correct_options}
+
         is_correct = selected_ids == correct_ids
         points = 1.0 if is_correct else 0.0
         return is_correct, points
@@ -122,23 +122,27 @@ class AnswerEvaluationService:
         return False, 0.0
 
     def _evaluate_numeric_answer(
-        self, 
-        answer: UserAnswer, 
+        self,
+        answer: UserAnswer,
         correct_options: list[AnswerOption]
     ) -> Tuple[bool, float]:
         """
-        Evaluate numeric answer - with tolerance
+        Evaluate numeric answer - with tolerance.
+        Correct option text is stored as "value|tolerance" (e.g. "9.81|0.01").
+        Tolerance comes from the creator's stored option, not the user's submission.
         """
         user_answer = answer.answer_payload.data.get("value")
-        tolerance = answer.answer_payload.data.get("tolerance", 0.01)
-        
+
         try:
             user_value = float(user_answer)
-            correct_value = float(correct_options[0].text) if correct_options else None
-            
-            if correct_value is None:
+
+            if not correct_options:
                 return False, 0.0
-            
+
+            parts = correct_options[0].text.split("|")
+            correct_value = float(parts[0])
+            tolerance = float(parts[1]) if len(parts) > 1 else 0.0
+
             is_correct = abs(user_value - correct_value) <= tolerance
             points = 1.0 if is_correct else 0.0
             return is_correct, points
@@ -146,22 +150,26 @@ class AnswerEvaluationService:
             return False, 0.0
 
     def _evaluate_matching_pairs(
-        self, 
-        answer: UserAnswer, 
+        self,
+        answer: UserAnswer,
         correct_options: list[AnswerOption]
     ) -> Tuple[bool, float]:
-        """Evaluate matching pairs answer"""
-        # Format: {"pairs": [{"left": "id1", "right": "id2"}, ...]}
-        user_pairs = set(
-            tuple(sorted([p["left"], p["right"]]))
+        """
+        Evaluate matching pairs answer.
+        Correct options are stored as "left|right" text (order matters — left != right).
+        User submits: {"pairs": [{"left": "France", "right": "Paris"}, ...]}
+        """
+        user_pairs = {
+            (str(p["left"]), str(p["right"]))
             for p in answer.answer_payload.data.get("pairs", [])
-        )
-        
-        correct_pairs = set(
-            tuple(sorted([opt.text.split("|")[0], opt.text.split("|")[1]]))
-            for opt in correct_options
-        )
-        
+        }
+
+        correct_pairs = set()
+        for opt in correct_options:
+            parts = opt.text.split("|", 1)
+            if len(parts) == 2:
+                correct_pairs.add((parts[0], parts[1]))
+
         is_correct = user_pairs == correct_pairs
         points = 1.0 if is_correct else 0.0
         return is_correct, points

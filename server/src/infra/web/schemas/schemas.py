@@ -8,6 +8,7 @@ from datetime import datetime
 
 # Test schemas
 class AnswerOptionSchema(BaseModel):
+    id: Optional[int] = None
     text: str
     is_correct: bool = False
     order: int = 0
@@ -46,7 +47,7 @@ class TestListResponse(BaseModel):
     description: Optional[str] = None
     status: str
     question_count: int
-    tags: list[str] = None
+    tags: Optional[list[str]] = []
     created_at: Optional[str] = None
 
 

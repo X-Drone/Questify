@@ -6,6 +6,7 @@ from infra.persist.db import db
 from infra.persist.uow import UnitOfWork
 from app.use_cases.test_management import (
     CreateTestUseCase,
+    UpdateTestUseCase,
     PublishTestUseCase,
     DeleteTestUseCase,
     GetCreatorTestsUseCase,
@@ -18,6 +19,14 @@ from infra.web.schemas.schemas import (
     TestDetailResponse,
 )
 from infra.web.api.auth import CurrentUser, get_current_user
+from pydantic import BaseModel
+from typing import Optional
+
+
+class TestUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    tags: Optional[list[str]] = None
 
 router = APIRouter(prefix="/tests", tags=["tests"])
 
@@ -40,6 +49,30 @@ async def create_test(
             creator_id=current_user.user_id,
             title=request.title,
             description=request.description or "",
+            tags=request.tags,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/{test_id}", summary="Update test metadata")
+async def update_test(
+    test_id: int,
+    request: TestUpdateRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    uow: UnitOfWork = Depends(get_uow),
+):
+    """Update test title, description or tags"""
+    try:
+        use_case = UpdateTestUseCase(uow)
+        result = use_case.execute(
+            test_id=test_id,
+            user_id=current_user.user_id,
+            title=request.title,
+            description=request.description,
             tags=request.tags,
         )
         return result

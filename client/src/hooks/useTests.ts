@@ -10,6 +10,12 @@ import type {
   TestCreateRequest,
 } from "../api/types";
 
+// =========================
+// Types
+// =========================
+
+type TestUpdateRequest = Partial<TestCreateRequest>;
+
 import { queryKeys } from "./queryKeys";
 
 // =========================
@@ -100,6 +106,24 @@ export function usePublishTest() {
       queryClient.invalidateQueries({
         queryKey:
           queryKeys.tests.all,
+      });
+    },
+  });
+}
+
+export function useUpdateTest(testId: ID) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: TestUpdateRequest) =>
+      testsApi.update(testId, data),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.tests.detail(testId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.tests.all,
       });
     },
   });

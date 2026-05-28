@@ -9,9 +9,16 @@ import type {
 
 export const testsApi = {
   create: (data: TestCreateRequest) =>
-    request<void>({
+    request<TestDetailResponse>({
       method: "POST",
       url: "/tests/create",
+      data,
+    }),
+
+  update: (testId: ID, data: Partial<TestCreateRequest>) =>
+    request<void>({
+      method: "PATCH",
+      url: `/tests/${testId}`,
       data,
     }),
 

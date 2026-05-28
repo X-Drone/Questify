@@ -3,7 +3,7 @@ Use cases for attempt management (taking tests)
 """
 from domain.entities import Attempt, UserAnswer
 from domain.values import (
-    AttemptId, UserId, TestId, QuestionId, AttemptStatus, AnswerPayload, Score
+    AttemptId, UserId, TestId, QuestionId, AttemptStatus, AnswerPayload, Score, QuestionType
 )
 from domain.services import AnswerEvaluationService, ScoreCalculationService
 from app.interfaces.uow import IUnitOfWork
@@ -40,7 +40,8 @@ class StartAttemptUseCase:
             active = self.uow.attempts.get_active_attempt(UserId(user_id), TestId(test_id))
             if active:
                 return {
-                    "id": active.id.value,
+                    "attempt_id": active.id.value,
+                    "test_id": active.test_id.value,
                     "status": active.status.value,
                 }
 
@@ -58,7 +59,7 @@ class StartAttemptUseCase:
             self.uow.commit()
 
             return {
-                "id": created_attempt.id.value,
+                "attempt_id": created_attempt.id.value,
                 "test_id": created_attempt.test_id.value,
                 "status": created_attempt.status.value,
             }
@@ -107,8 +108,13 @@ class SubmitAnswerUseCase:
 
             # Evaluate answer
             evaluation_service = AnswerEvaluationService()
-            correct_options = [opt for opt in question.answer_options if opt.is_correct]
-            # print(correct_options)
+            # matching_pairs and ordering don't mark options as is_correct —
+            # all options define the correct structure, so pass all of them.
+            types_using_all_options = (QuestionType.MATCHING_PAIRS, QuestionType.ORDERING)
+            if question.question_type in types_using_all_options:
+                correct_options = question.answer_options
+            else:
+                correct_options = [opt for opt in question.answer_options if opt.is_correct]
             is_correct, points = evaluation_service.evaluate_answer(
                 user_answer, question, correct_options
             )

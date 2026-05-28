@@ -9,6 +9,26 @@ from app.interfaces.uow import IUnitOfWork
 from datetime import datetime
 
 
+def _option_text(question_type: str, opt_data: dict) -> str:
+    """
+    Convert answer option data to the text stored in the DB.
+
+    Convention:
+    - numeric_answer  → "value|tolerance"  (e.g. "9.81|0.01")
+    - matching_pairs  → "left|right"       (e.g. "France|Paris")
+    - all others      → opt_data["text"]
+    """
+    if question_type == "numeric_answer":
+        value = opt_data.get("value", 0)
+        tolerance = opt_data.get("tolerance", 0)
+        return f"{value}|{tolerance}"
+    if question_type == "matching_pairs":
+        left = opt_data.get("left", "")
+        right = opt_data.get("right", "")
+        return f"{left}|{right}"
+    return opt_data.get("text", "")
+
+
 class AddQuestionUseCase:
     """Use case for adding a question to a test"""
 
@@ -57,12 +77,13 @@ class AddQuestionUseCase:
                 updated_at=datetime.utcnow(),
             )
 
-            # Add answer options
+            # Add answer options — format depends on question type
             for idx, opt_data in enumerate(answer_options_data):
+                text = _option_text(question_type, opt_data)
                 option = AnswerOption(
                     id=None,
                     question_id=question.id,
-                    text=opt_data["text"],
+                    text=text,
                     is_correct=opt_data.get("is_correct", False),
                     order=idx,
                 )
@@ -161,10 +182,11 @@ class UpdateQuestionUseCase:
             if answer_options_data:
                 question.answer_options = []
                 for idx, opt_data in enumerate(answer_options_data):
+                    text = _option_text(question.question_type.value, opt_data)
                     option = AnswerOption(
                         id=None,
                         question_id=question.id,
-                        text=opt_data["text"],
+                        text=text,
                         is_correct=opt_data.get("is_correct", False),
                         order=idx,
                     )

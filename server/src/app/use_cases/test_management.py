@@ -19,22 +19,9 @@ class CreateTestUseCase:
         self.uow = uow
 
     def execute(self, creator_id: str, title: str, description: str, tags: List[str] = None) -> dict:
-        """
-        Create a new test
-        
-        Args:
-            creator_id: ID of the test creator
-            title: Test title
-            description: Test description
-            tags: List of tags
-            
-        Returns:
-            Dictionary with created test data
-        """
         with self.uow:
-            # Create domain entity
             test = Test(
-                id=TestId(0),  # Will be set by the repository
+                id=TestId(None),
                 creator_id=UserId(creator_id),
                 title=title,
                 description=description,
@@ -45,14 +32,18 @@ class CreateTestUseCase:
                 updated_at=datetime.utcnow(),
             )
 
-            # Persist
             created_test = self.uow.tests.add(test)
             self.uow.commit()
 
             return {
                 "id": created_test.id.value,
                 "title": created_test.title,
+                "description": created_test.description,
                 "status": created_test.status.value,
+                "tags": created_test.tags,
+                "questions": [],
+                "created_at": created_test.created_at.isoformat() if created_test.created_at else None,
+                "published_at": None,
             }
 
 
@@ -120,8 +111,8 @@ class DeleteTestUseCase:
             if not test:
                 raise ValueError(f"Test {test_id} not found")
 
-            # Check authorization
-            if test.creator_id.value != user_id:
+            # Compare as strings: creator_id is stored as String in DB but may arrive as int
+            if str(test.creator_id.value) != str(user_id):
                 raise ValueError("User is not authorized to delete this test")
 
             # Delete
@@ -151,8 +142,10 @@ class GetCreatorTestsUseCase:
                 {
                     "id": test.id.value,
                     "title": test.title,
+                    "description": test.description,
                     "status": test.status.value,
                     "question_count": test.get_question_count(),
+                    "tags": test.tags,
                     "created_at": test.created_at.isoformat() if test.created_at else None,
                 }
                 for test in tests
@@ -183,7 +176,7 @@ class GetPublishedTestsUseCase:
                     "id": test.id.value,
                     "title": test.title,
                     "description": test.description,
-                    "status": test.status,
+                    "status": test.status.value,
                     "question_count": test.get_question_count(),
                     "tags": test.tags,
                     "created_at": test.created_at.isoformat() if test.created_at else None,
@@ -243,4 +236,48 @@ class GetTestDetailUseCase:
                 ],
                 "created_at": test.created_at.isoformat() if test.created_at else None,
                 "published_at": test.published_at.isoformat() if test.published_at else None,
+            }
+
+
+class UpdateTestUseCase:
+    """Use case for updating test metadata (title, description, tags)"""
+
+    def __init__(self, uow: IUnitOfWork):
+        self.uow = uow
+
+    def execute(
+        self,
+        test_id: int,
+        user_id,
+        title: str = None,
+        description: str = None,
+        tags: List[str] = None,
+    ) -> dict:
+        with self.uow:
+            test = self.uow.tests.get_by_id(TestId(test_id))
+            if not test:
+                raise ValueError(f"Test {test_id} not found")
+
+            if str(test.creator_id.value) != str(user_id):
+                raise ValueError("User is not authorized to update this test")
+
+            if title is not None:
+                test.title = title
+            if description is not None:
+                test.description = description
+            if tags is not None:
+                test.tags = tags
+
+            test.updated_at = datetime.utcnow()
+            updated = self.uow.tests.update(test)
+            self.uow.commit()
+
+            return {
+                "id": updated.id.value,
+                "title": updated.title,
+                "description": updated.description,
+                "status": updated.status.value,
+                "tags": updated.tags,
+                "created_at": updated.created_at.isoformat() if updated.created_at else None,
+                "published_at": updated.published_at.isoformat() if updated.published_at else None,
             }

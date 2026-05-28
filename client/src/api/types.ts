@@ -35,6 +35,7 @@ export interface HTTPValidationError {
 // =========================
 
 export interface AnswerOption {
+  id?: ID;
   text: string;
   is_correct?: boolean;
   order?: number;
@@ -176,8 +177,8 @@ export interface NumericAnswerData {
 }
 
 export interface MatchingPair {
-  left: number;
-  right: number;
+  left: string;
+  right: string;
 }
 
 export interface MatchingPairsAnswerData {
